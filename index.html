@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ficha Clínica Colaborativa · Prototipo</title>
+<style>
+:root{--bg:#f3f6f8;--card:#fff;--ink:#14263a;--mut:#5b6b7b;--line:#dbe3ea;--pri:#1f5fae;--pat:#1f9d6b;--enf:#7a4fc4;--warn:#e08a1e;--red:#c8423a;--wa:#dcf8c6;
+padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box}
+:root:not([data-theme="light"]){}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1822;--card:#17232f;--ink:#e8eef4;--mut:#9fb0c0;--line:#2a3a49;--wa:#1f4d3a}}
+:root[data-theme="dark"]{--bg:#0f1822;--card:#17232f;--ink:#e8eef4;--mut:#9fb0c0;--line:#2a3a49;--wa:#1f4d3a}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 "Segoe UI",system-ui,sans-serif}
+header{padding:20px 20px 0;max-width:1100px;margin:0 auto}
+h1{margin:0;font-size:1.7rem;letter-spacing:-.02em}
+header p{margin:4px 0 0;color:var(--mut);max-width:60ch}
+nav{display:flex;gap:8px;max-width:1100px;margin:16px auto 0;padding:0 20px;overflow-x:auto}
+nav button{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:10px 16px;border-radius:10px;font:inherit;cursor:pointer;white-space:nowrap}
+nav button[aria-selected=true]{background:var(--pri);color:#fff;border-color:var(--pri)}
+nav button:focus-visible,.btn:focus-visible,input:focus-visible{outline:3px solid var(--warn);outline-offset:2px}
+main{max-width:1100px;margin:16px auto;padding:0 20px 40px}
+section{display:none}section.on{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+.grid{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.phone{max-width:380px;margin:0 auto;border:8px solid #1d2b38;border-radius:28px;overflow:hidden;background:var(--card)}
+.top{background:#075e54;color:#fff;padding:10px 14px;font-weight:600}
+.chat{height:340px;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;background:var(--bg)}
+.m{max-width:85%;padding:8px 12px;border-radius:12px;background:var(--card);border:1px solid var(--line);font-size:.92rem}
+.m.me{align-self:flex-end;background:var(--wa)}
+.opts{display:flex;flex-wrap:wrap;gap:6px;padding:10px;border-top:1px solid var(--line)}
+.btn{border:1px solid var(--pri);color:var(--pri);background:transparent;border-radius:999px;padding:6px 12px;font:inherit;font-size:.88rem;cursor:pointer}
+.btn:hover{background:var(--pri);color:#fff}
+.btn.solid{background:var(--pri);color:#fff}
+.tag{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.78rem;font-weight:600;color:#fff}
+.alto{background:var(--red)}.medio{background:var(--warn)}.bajo{background:var(--pat)}
+.row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border:0}
+.mut{color:var(--mut);font-size:.88rem}
+h2{margin:0 0 10px;font-size:1.1rem}
+svg{max-width:100%}
+.kpi{display:flex;gap:16px;flex-wrap:wrap}.kpi div b{display:block;font-size:1.5rem}
+.note{background:var(--bg);border-left:4px solid var(--enf);padding:8px 12px;border-radius:6px;font-size:.88rem;margin-top:10px}
+</style>
+</head>
+<body>
+<header>
+<h1>Ficha Clínica Colaborativa</h1>
+<p>Prototipo navegable: el paciente responde por WhatsApp, enfermería filtra y el equipo tratante decide. Los datos son de ejemplo.</p>
+</header>
+<nav role="tablist">
+<button role="tab" aria-selected="true" data-t="p">1. Paciente (WhatsApp)</button>
+<button role="tab" aria-selected="false" data-t="e">2. Filtro de enfermería</button>
+<button role="tab" aria-selected="false" data-t="d">3. Equipo tratante</button>
+</nav>
+<main>
+<section id="p" class="on">
+<div class="phone">
+<div class="top">Tu salud mental importa · Bot clínico</div>
+<div class="chat" id="chat" aria-live="polite"></div>
+<div class="opts" id="opts"></div>
+</div>
+<p class="mut" style="text-align:center">Lo que responda aquí aparece en las otras dos pestañas.</p>
+</section>
+
+<section id="e">
+<div class="card">
+<h2>Bandeja de enfermería</h2>
+<p class="mut">Revisa riesgos, valida la información y clasifica la urgencia.</p>
+<div id="inbox"></div>
+<div class="note">Enfermería acompaña, orienta y filtra. No toma decisiones clínicas.</div>
+</div>
+</section>
+
+<section id="d">
+<div class="grid">
+<div class="card">
+<h2>María González · 28 años</h2>
+<div class="kpi"><div><b id="kAd">85%</b><span class="mut">Adherencia</span></div><div><b id="kRi">Bajo</b><span class="mut">Riesgo actual</span></div><div><b id="kSn">0</b><span class="mut">Por revisar</span></div></div>
+<h2 style="margin-top:16px">Estado de ánimo (últimos 30 días)</h2>
+<svg id="chart" viewBox="0 0 300 100" role="img" aria-label="Gráfico de estado de ánimo"></svg>
+</div>
+<div class="card">
+<h2>Últimas encuestas</h2>
+<div id="surveys"></div>
+<h2 style="margin-top:16px">Red de apoyo</h2>
+<div class="mut">Madre · Hermano · Amiga (3 contactos activos)</div>
+</div>
+<div class="card">
+<h2>Asignación de horas</h2>
+<p class="mut">El sistema sugiere; el profesional decide.</p>
+<div id="queue"></div>
+</div>
+</div>
+</section>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const state={mood:null,med:null,cita:null,audio:null,urg:null,approved:{}};
+const moodVals={'😄 Bien':8,'😐 Más o menos':5,'😟 Mal':2};
+const series=[6,5,6,7,5,6,7,8,6,5,6,7];
+const chat=$('#chat'),opts=$('#opts');
+function say(t,me){const d=document.createElement('div');d.className='m'+(me?' me':'');d.textContent=t;chat.appendChild(d);chat.scrollTop=chat.scrollHeight}
+function ask(q,choices,cb){say(q);opts.innerHTML='';choices.forEach(c=>{const b=document.createElement('button');b.className='btn';b.textContent=c;b.onclick=()=>{say(c,true);opts.innerHTML='';setTimeout(()=>cb(c),400)};opts.appendChild(b)})}
+function flow(){
+ say('¡Hola! Bienvenida a tu espacio de apoyo. Te haré 3 preguntas breves.');
+ ask('¿Cómo te sientes hoy?',Object.keys(moodVals),m=>{state.mood=m;
+  ask('¿Tomaste tu medicación?',['Sí','No','A veces'],md=>{state.med=md;
+   ask('¿Asistirás a tu próxima cita?',['Sí','No puedo asistir'],c=>{state.cita=c;
+    ask('¿Quieres enviar un audio o hablar con enfermería?',['Hablar con enfermería','No, gracias'],a=>{state.audio=a;
+     say('¡Gracias! Tu respuesta llegó a enfermería. Tu red de apoyo y tu equipo de salud están contigo.');
+     const o=document.createElement('button');o.className='btn solid';o.textContent='Reiniciar demo';o.onclick=()=>{chat.innerHTML='';opts.innerHTML='';flow()};opts.appendChild(o);
+     render()})})})});
+}
+function risk(){let s=0;if(state.mood&&moodVals[state.mood]<=2)s+=2;if(state.med==='No')s+=1;if(state.cita==='No puedo asistir')s+=1;if(state.audio==='Hablar con enfermería')s+=1;return s>=3?'alto':s>=1?'medio':'bajo'}
+function render(){
+ const r=state.mood?risk():'bajo';
+ const inbox=$('#inbox');
+ if(!state.mood){inbox.innerHTML='<p class="mut">Sin mensajes. Completa el chat en la pestaña Paciente.</p>'}
+ else{inbox.innerHTML=`<div class="row"><div><b>María González</b><div class="mut">Ánimo: ${state.mood} · Medicación: ${state.med||'—'} · Cita: ${state.cita||'—'}</div></div><div><span class="tag ${r}">Urgencia ${r}</span></div></div>
+ <div class="row"><span class="mut">Validar y enviar al equipo tratante</span><button class="btn solid" id="send">${state.urg?'Enviado ✓':'Validar y enviar'}</button></div>`;
+ $('#send').onclick=()=>{state.urg=r;render()}}
+ const sent=!!state.urg;
+ $('#kRi').textContent=sent?(r==='alto'?'Alto':r==='medio'?'Medio':'Bajo'):'Bajo';
+ $('#kAd').textContent=state.med==='No'?'78%':'85%';
+ $('#kSn').textContent=sent?1:0;
+ $('#surveys').innerHTML=[['Ánimo hoy',state.mood||'—'],['Medicación',state.med||'—'],['Asistencia',state.cita||'—'],['Ansiedad','3/10'],['Sueño','6/10']].map(x=>`<div class="row"><span>${x[0]}</span><b>${x[1]}</b></div>`).join('');
+ const q=$('#queue');
+ if(!sent){q.innerHTML='<p class="mut">Sin casos pendientes.</p>'}
+ else{const sug=r==='alto'?'Asignar hora disponible esta semana':r==='medio'?'Priorizar en lista de espera':'Mantener cita actual';
+  q.innerHTML=`<div class="row"><div><b>María González</b><div class="mut">Sugerencia: ${sug}</div></div><span class="tag ${r}">${r}</span></div><button class="btn solid" id="ok">${state.approved.m?'Aprobado ✓':'Aprobar sugerencia'}</button>`;
+  $('#ok').onclick=()=>{state.approved.m=1;render()}}
+ chart();
+}
+function chart(){
+ const v=series.slice();if(state.mood)v.push(moodVals[state.mood]);
+ const w=300/(v.length-1);
+ const pts=v.map((y,i)=>[i*w,95-y*9]);
+ $('#chart').innerHTML=`<polyline fill="none" stroke="var(--pri)" stroke-width="2.5" points="${pts.map(p=>p.join(',')).join(' ')}"/>`+pts.map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]}" r="${i===pts.length-1&&state.mood?5:3}" fill="${i===pts.length-1&&state.mood?'var(--warn)':'var(--pri)'}"/>`).join('');
+}
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+ document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',x===b));
+ document.querySelectorAll('section').forEach(s=>s.classList.toggle('on',s.id===b.dataset.t));render()});
+flow();render();
+</script>
+</body>
+</html>

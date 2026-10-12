@@ -1,0 +1,14 @@
+# Secrets and local environment files
+.env
+.env.*
+!.env.example
+
+# Python virtual environments and generated files
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Local editor/OS files
+.DS_Store
+Thumbs.db
