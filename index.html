@@ -19,7 +19,7 @@ header p{margin:4px 0 0;color:var(--mut);max-width:60ch}
 nav{display:flex;gap:8px;max-width:1100px;margin:16px auto 0;padding:0 20px;overflow-x:auto}
 nav button{border:1px solid var(--line);background:var(--card);color:var(--ink);padding:10px 16px;border-radius:10px;font:inherit;cursor:pointer;white-space:nowrap}
 nav button[aria-selected=true]{background:var(--pri);color:#fff;border-color:var(--pri)}
-nav button:focus-visible,.btn:focus-visible,input:focus-visible{outline:3px solid var(--warn);outline-offset:2px}
+nav button:focus-visible,.btn:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--warn);outline-offset:2px}
 main{max-width:1100px;margin:16px auto;padding:0 20px 40px}
 section{display:none}section.on{display:block}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
@@ -37,11 +37,23 @@ section{display:none}section.on{display:block}
 .alto{background:var(--red)}.medio{background:var(--warn)}.bajo{background:var(--pat)}
 .row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
 .row:last-child{border:0}
+.filter{display:flex;align-items:center;gap:8px;margin:12px 0}
+.filter select{border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);padding:6px 8px;font:inherit}
 .mut{color:var(--mut);font-size:.88rem}
 h2{margin:0 0 10px;font-size:1.1rem}
 svg{max-width:100%}
 .kpi{display:flex;gap:16px;flex-wrap:wrap}.kpi div b{display:block;font-size:1.5rem}
 .note{background:var(--bg);border-left:4px solid var(--enf);padding:8px 12px;border-radius:6px;font-size:.88rem;margin-top:10px}
+.cie10-card{margin-top:16px}
+.cie10-controls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:16px}
+.cie10-controls label{display:grid;gap:6px;font-weight:600}
+.cie10-controls select{width:100%;min-height:42px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--ink);padding:8px;font:inherit}
+.cie10-summary{margin-top:16px;padding:12px 14px;background:var(--bg);border-left:4px solid var(--pri);border-radius:4px}
+.cie10-results{margin-top:12px}
+.cie10-results .row{align-items:flex-start}
+.cie10-count{white-space:nowrap;font-weight:650}
+.cie10-note{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+@media(max-width:640px){.cie10-controls{grid-template-columns:1fr}.cie10-count{white-space:normal}}
 </style>
 </head>
 <body>
@@ -69,6 +81,7 @@ svg{max-width:100%}
 <h2>Bandeja de enfermería</h2>
 <p class="mut">Los casos reales recibidos por WhatsApp aparecerán aquí cuando el backend local esté conectado.</p>
 <p id="apiStatus" class="mut" role="status" aria-live="polite">Conectando con el bot…</p>
+<div class="filter"><label for="severityFilter">Gravedad</label><select id="severityFilter"><option value="todas">Todas</option><option value="alto">Alta</option><option value="medio">Media</option><option value="bajo">Baja</option></select></div>
 <div id="inbox"></div>
 <div class="note">Enfermería acompaña, orienta y filtra. No toma decisiones clínicas.</div>
 </div>
@@ -95,6 +108,25 @@ svg{max-width:100%}
 <div id="queue"></div>
 </div>
 </div>
+<div class="card cie10-card" aria-labelledby="cie10Title">
+<h2 id="cie10Title">Filtro de solicitudes médicas · CIE-10</h2>
+<p class="mut">Acota el catálogo de diagnósticos de ejemplo por grupo, categoría y subcategoría.</p>
+<div class="cie10-controls">
+<label for="cie10Group">1. Grupo / capítulo
+<select id="cie10Group"><option value="">Todos los grupos</option></select>
+</label>
+<label for="cie10Category">2. Categoría diagnóstica
+<select id="cie10Category" disabled><option value="">Todas las categorías</option></select>
+</label>
+<label for="cie10Subcategory">3. Subcategoría específica
+<select id="cie10Subcategory" disabled><option value="">Todas las subcategorías</option></select>
+</label>
+</div>
+<button class="btn" id="cie10Reset" type="button">Limpiar filtros</button>
+<div class="cie10-summary" id="cie10Summary" role="status" aria-live="polite"></div>
+<div class="cie10-results" id="cie10Results"></div>
+<p class="mut cie10-note">Recuentos de ejemplo compartidos, no registros clínicos reales. No hay un CSV de solicitudes conectado; este filtro no consulta expedientes ni realiza diagnósticos. Valida códigos y denominaciones con el equipo clínico.</p>
+</div>
 </section>
 </main>
 <script>
@@ -104,6 +136,37 @@ const API_BASE=location.protocol==='file:'||location.port==='5500'?'http://127.0
 let apiConnected=false,realCases=[];
 const moodVals={'😄 Bien':8,'😐 Más o menos':5,'😟 Mal':2};
 const series=[6,5,6,7,5,6,7,8,6,5,6,7];
+const cie10Groups=[
+ {id:'F30-F39',name:'F30-F39 - Trastornos del humor [afectivos]',categories:[
+  {id:'F32',name:'F32 - Episodio depresivo',subcategories:[
+   {code:'F320',name:'Episodio depresivo leve',count:114},
+   {code:'F321',name:'Episodio depresivo moderado',count:843},
+   {code:'F322',name:'Episodio depresivo grave sin síntomas psicóticos',count:5387},
+   {code:'F323',name:'Episodio depresivo grave con síntomas psicóticos',count:1043},
+   {code:'F328',name:'Otros episodios depresivos',count:313},
+   {code:'F329',name:'Episodio depresivo, no especificado',count:2503}
+  ]},
+  {id:'F30',name:'F30 - Episodio maníaco',subcategories:[]},
+  {id:'F31',name:'F31 - Trastorno afectivo bipolar',subcategories:[]},
+  {id:'F33',name:'F33 - Trastorno depresivo recurrente',subcategories:[]},
+  {id:'F34',name:'F34 - Trastornos del humor persistentes',subcategories:[]},
+  {id:'F38',name:'F38 - Otros trastornos del humor',subcategories:[]},
+  {id:'F39',name:'F39 - Trastorno del humor no especificado',subcategories:[]}
+ ]},
+ {id:'F40-F48',name:'F40-F48 - Trastornos neuróticos y relacionados con el estrés',categories:[
+  {id:'F40',name:'F40 - Trastornos fóbicos de ansiedad',subcategories:[]},
+  {id:'F41',name:'F41 - Otros trastornos de ansiedad',subcategories:[]},
+  {id:'F42',name:'F42 - Trastorno obsesivo-compulsivo',subcategories:[]},
+  {id:'F43',name:'F43 - Reacción al estrés grave y trastornos de adaptación',subcategories:[]},
+  {id:'F44',name:'F44 - Trastornos disociativos',subcategories:[]},
+  {id:'F45',name:'F45 - Trastornos somatomorfos',subcategories:[]},
+  {id:'F48',name:'F48 - Neurastenia',subcategories:[]}
+ ]},
+ {id:'F20-F29',name:'F20-F29 - Esquizofrenia y trastornos delirantes',categories:[]},
+ {id:'F10-F19',name:'F10-F19 - Trastornos debidos al uso de sustancias psicoactivas',categories:[]},
+ {id:'F60-F69',name:'F60-F69 - Trastornos de la personalidad y del comportamiento en adultos',categories:[]},
+ {id:'F00-F09',name:'F00-F09 - Trastornos mentales orgánicos',categories:[]}
+];
 const chat=$('#chat'),opts=$('#opts');
 function say(t,me){const d=document.createElement('div');d.className='m'+(me?' me':'');d.textContent=t;chat.appendChild(d);chat.scrollTop=chat.scrollHeight}
 function ask(q,choices,cb){say(q);opts.innerHTML='';choices.forEach(c=>{const b=document.createElement('button');b.className='btn';b.textContent=c;b.onclick=()=>{say(c,true);opts.innerHTML='';setTimeout(()=>cb(c),400)};opts.appendChild(b)})}
@@ -124,7 +187,10 @@ function renderInbox(){
  status.textContent=apiConnected?`Bot conectado · ${realCases.length} caso(s) recibido(s)`:'Backend desconectado · Mostrando solo la demostración local.';
  if(apiConnected){
   if(!realCases.length){inbox.innerHTML='<p class="mut">Todavía no hay casos recibidos por WhatsApp.</p>';return}
-  inbox.innerHTML=realCases.map(c=>{
+  const severity=$('#severityFilter').value;
+  const visibleCases=severity==='todas'?realCases:realCases.filter(c=>c.urgencia===severity);
+  if(!visibleCases.length){inbox.innerHTML='<p class="mut">No hay casos con esta gravedad.</p>';return}
+  inbox.innerHTML=visibleCases.map(c=>{
    const answers=Object.entries(c.respuestas||{}).map(([k,v])=>`${escapeHtml(k)}: ${escapeHtml(v)}`).join(' · ')||'Sin respuestas registradas';
    const note=c.nota?`<div class="mut">${escapeHtml(c.nota)}</div>`:'';
      const action=c.validado?'<span class="mut">Validado ✓</span>':`<button class="btn solid" data-case-id="${Number(c.id)}">Validar caso</button>`;
@@ -142,6 +208,8 @@ function renderInbox(){
  }
  if(!state.mood){inbox.innerHTML='<p class="mut">Sin mensajes. Completa el chat de demostración en la pestaña Paciente.</p>';return}
  const r=risk();
+ const severity=$('#severityFilter').value;
+ if(severity!=='todas'&&severity!==r){inbox.innerHTML='<p class="mut">No hay casos con esta gravedad.</p>';return}
  inbox.innerHTML=`<div class="row"><div><b>María González · DEMO</b><div class="mut">Ánimo: ${escapeHtml(state.mood)} · Medicación: ${escapeHtml(state.med||'—')} · Cita: ${escapeHtml(state.cita||'—')}</div></div><span class="tag ${r}">Urgencia ${r}</span></div><div class="row"><span class="mut">Caso simulado; no fue enviado por WhatsApp.</span><button class="btn solid" id="send">${state.urg?'Revisado ✓':'Validar demo'}</button></div>`;
  $('#send').onclick=()=>{state.urg=r;render()};
 }
@@ -174,10 +242,59 @@ function chart(){
  const pts=v.map((y,i)=>[i*w,95-y*9]);
  $('#chart').innerHTML=`<polyline fill="none" stroke="var(--pri)" stroke-width="2.5" points="${pts.map(p=>p.join(',')).join(' ')}"/>`+pts.map((p,i)=>`<circle cx="${p[0]}" cy="${p[1]}" r="${i===pts.length-1&&state.mood?5:3}" fill="${i===pts.length-1&&state.mood?'var(--warn)':'var(--pri)'}"/>`).join('');
 }
+function setCie10Options(select,placeholder,items){
+ select.replaceChildren(new Option(placeholder,''),...items.map(item=>new Option(item.name,item.id||item.code)));
+ select.disabled=items.length===0;
+}
+function initCie10(){
+ const group=$('#cie10Group'),category=$('#cie10Category'),subcategory=$('#cie10Subcategory');
+ group.addEventListener('change',()=>{
+  const selected=cie10Groups.find(item=>item.id===group.value);
+  setCie10Options(category,'Todas las categorías',selected?.categories||[]);
+  setCie10Options(subcategory,'Todas las subcategorías',[]);
+  renderCie10();
+ });
+ category.addEventListener('change',()=>{
+  const selectedGroup=cie10Groups.find(item=>item.id===group.value);
+  const selectedCategory=selectedGroup?.categories.find(item=>item.id===category.value);
+  setCie10Options(subcategory,'Todas las subcategorías',selectedCategory?.subcategories||[]);
+  renderCie10();
+ });
+ subcategory.addEventListener('change',renderCie10);
+ $('#cie10Reset').addEventListener('click',()=>{
+  group.value='';
+  setCie10Options(category,'Todas las categorías',[]);
+  setCie10Options(subcategory,'Todas las subcategorías',[]);
+  renderCie10();
+ });
+ setCie10Options(group,'Todos los grupos',cie10Groups);
+ renderCie10();
+}
+function renderCie10(){
+ const groupId=$('#cie10Group').value,categoryId=$('#cie10Category').value,code=$('#cie10Subcategory').value;
+ const group=cie10Groups.find(item=>item.id===groupId);
+ const category=group?.categories.find(item=>item.id===categoryId);
+ const selectedCode=category?.subcategories.find(item=>item.code===code);
+ const entries=selectedCode?[selectedCode]:category?category.subcategories:group?group.categories.flatMap(item=>item.subcategories):cie10Groups.flatMap(item=>item.categories.flatMap(child=>child.subcategories));
+ let filter='Ninguno (mostrando el catálogo de ejemplo).';
+ if(selectedCode)filter=`Código exacto: Cod_Glos_Sub_Cat = '${selectedCode.code}'.`;
+ else if(category)filter=`Categoría: Cod_Glos_Sub_Cat LIKE '${category.id}%'.`;
+ else if(group){
+  const match=/^([A-Z])(\d{2})-([A-Z])(\d{2})$/.exec(group.id);
+  const upper=match?`${match[3]}${String(Number(match[4])+1).padStart(2,'0')}`:'';
+  filter=match?`Grupo: Cod_Glos_Sub_Cat >= '${match[1]}${match[2]}' AND Cod_Glos_Sub_Cat < '${upper}'.`:`Grupo ${group.id}.`;
+ }
+ const total=entries.reduce((sum,item)=>sum+item.count,0);
+ $('#cie10Summary').textContent=`Filtro activo: ${filter} ${entries.length?`${total.toLocaleString('es-CL')} casos en los recuentos de ejemplo.`:'Sin recuento detallado para esta selección.'}`;
+ const results=$('#cie10Results');
+ if(!entries.length){results.textContent='No hay subcategorías con recuentos disponibles para este nivel en los datos de ejemplo.';return}
+ results.innerHTML=entries.map(item=>`<div class="row"><span><code>${item.code}</code> · ${item.name}</span><span class="cie10-count">${item.count.toLocaleString('es-CL')} casos</span></div>`).join('');
+}
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
  document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',x===b));
  document.querySelectorAll('section').forEach(s=>s.classList.toggle('on',s.id===b.dataset.t));render()});
-flow();render();refreshCases();setInterval(refreshCases,5000);
+$('#severityFilter').addEventListener('change',renderInbox);
+initCie10();flow();render();refreshCases();setInterval(refreshCases,5000);
 </script>
 </body>
 </html>

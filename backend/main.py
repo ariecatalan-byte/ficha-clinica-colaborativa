@@ -1,8 +1,9 @@
 import os
 import ipaddress
 from pathlib import Path
+from urllib.parse import urlencode, urlsplit
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parent / ".env")
 from fastapi import FastAPI, Request, Query, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
@@ -10,6 +11,7 @@ import whatsapp as wa
 
 app = FastAPI(title="Ficha Clínica Colaborativa")
 VERIFY_TOKEN = os.getenv("WA_VERIFY_TOKEN", "cambia-este-token")
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
 FRONTEND_ORIGINS = [origin.strip() for origin in os.getenv(
     "DASHBOARD_ORIGINS", "http://127.0.0.1:5500,http://localhost:5500"
 ).split(",") if origin.strip()]
@@ -68,6 +70,27 @@ def exigir_acceso_local(req: Request):
 def inicio():
     return FileResponse(Path(__file__).resolve().parent.parent / "index.html")
 
+@app.get("/acompanamiento")
+def pagina_acompanamiento():
+    return FileResponse(Path(__file__).resolve().parent.parent / "acompanamiento.html")
+
+@app.get("/inicio-acompanamiento")
+def formulario_acompanamiento():
+    return FileResponse(Path(__file__).resolve().parent.parent / "formulario-acompanamiento.html")
+
+def enlace_acompanamiento(motivo: str) -> str | None:
+    partes = urlsplit(PUBLIC_BASE_URL)
+    if partes.scheme != "https" or not partes.netloc or partes.path not in ("", "/") or partes.query or partes.fragment:
+        return None
+    hostname = partes.hostname or ""
+    try:
+        if not ipaddress.ip_address(hostname).is_global:
+            return None
+    except ValueError:
+        if hostname == "localhost" or hostname.endswith(".localhost"):
+            return None
+    return f"{PUBLIC_BASE_URL}/inicio-acompanamiento?{urlencode({'motivo': motivo})}"
+
 async def avanzar(tel: str):
     s = SESIONES[tel]
     if s["paso"] < len(PASOS):
@@ -77,13 +100,27 @@ async def avanzar(tel: str):
         u = triage(s["resp"])
         crear_caso(tel, u, s["resp"])
         s["paso"] = -1
-        await wa.enviar_texto(tel, "¡Gracias! Enfermería recibió tus respuestas. Escribe *hola* cuando quieras responder de nuevo.")
+        mensaje = "¡Gracias! Enfermería recibió tus respuestas. Escribe *hola* cuando quieras responder de nuevo."
+        if u == "alto" or s["resp"].get("enf") == "enf_si":
+            motivo = "urgencia-alta" if u == "alto" else "enfermeria"
+            enlace = enlace_acompanamiento(motivo)
+            if enlace:
+                mensaje += f"\n\nInformación y próximos pasos: {enlace}"
+            else:
+                print("PUBLIC_BASE_URL no es una URL HTTPS pública; no se envió el enlace de acompañamiento.")
+        await wa.enviar_texto(tel, mensaje)
 
 async def procesar(tel: str, tipo: str, contenido: str):
     s = SESIONES.setdefault(tel, {"paso": -1, "consiente": False, "resp": {}})
     if tipo == "texto" and any(k in contenido.lower() for k in PALABRAS_CRISIS):
         crear_caso(tel, "alto", s["resp"], "Posible riesgo vital: contactar de inmediato")
-        return await wa.enviar_texto(tel, MSG_CRISIS)
+        enlace = enlace_acompanamiento("urgencia-alta")
+        mensaje = MSG_CRISIS
+        if enlace:
+            mensaje += f"\n\nInformación y próximos pasos: {enlace}"
+        else:
+            print("PUBLIC_BASE_URL no es una URL HTTPS pública; no se envió el enlace de acompañamiento.")
+        return await wa.enviar_texto(tel, mensaje)
     if tipo == "boton" and contenido == "consent_si":
         s.update(consiente=True, paso=0, resp={})
         return await avanzar(tel)

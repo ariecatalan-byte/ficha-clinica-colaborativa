@@ -9,6 +9,14 @@
 
 La bandeja de esta versión está restringida al equipo local y guarda los casos en memoria; se vacían al reiniciar. No publiques ni expongas la bandeja a Internet: antes de usarla en una clínica hacen falta autenticación por roles, base de datos, controles de privacidad y revisión clínica.
 
+## Enlace de acompañamiento por WhatsApp
+Al completar la encuesta, el bot adjunta `/inicio-acompanamiento` cuando la persona solicita hablar con enfermería o el triage resulta alto. El formulario pide tipo de ayuda y ánimo; esas selecciones solo se muestran en el resumen siguiente y no se notifican ni se guardan en la ficha clínica. Los teléfonos de ayuda inmediata permanecen disponibles desde la primera pantalla.
+
+Configura `PUBLIC_BASE_URL` en `backend/.env` con el origen HTTPS público que sirve esta aplicación, por ejemplo `https://mi-dominio.example`. No uses `127.0.0.1`: el teléfono no puede abrir una dirección local. Sin una URL HTTPS válida, el bot no envía el enlace. Esta versión de demostración no está lista para exponer la bandeja clínica públicamente; usa solo datos sintéticos hasta implementar autenticación y controles de acceso adecuados.
+
+## Filtro CIE-10
+El panel Equipo tratante permite filtrar el catálogo por grupo, categoría o código específico y muestra los recuentos de ejemplo compartidos. No hay un `solicitudes_medicas_2025.csv` en este proyecto, por lo que no consulta solicitudes reales ni ejecuta las consultas SQL/Pandas proporcionadas. Para conectar esos filtros a expedientes, agrega el dataset y valida previamente su acceso y clasificación clínica.
+
 ## Abrir la demostración en Visual Studio Code
 1. Descomprime la carpeta.
 2. VS Code > Archivo > Abrir carpeta... > selecciona `ficha-clinica-colaborativa`.

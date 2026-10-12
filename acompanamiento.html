@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#f3f6f8">
+<title>Acompañamiento · Ficha Clínica</title>
+<style>
+:root{color-scheme:light dark;--bg:#f3f6f8;--surface:#fff;--ink:#14263a;--muted:#536779;--line:#d5e0e7;--primary:#176c68;--urgent:#a5312d;--soft:#e8f2f0}
+@media(prefers-color-scheme:dark){:root{--bg:#101a22;--surface:#192832;--ink:#edf4f4;--muted:#b2c2c9;--line:#344b54;--primary:#78c7bc;--urgent:#ff9387;--soft:#203b3b}}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font:16px/1.55 "Segoe UI",system-ui,sans-serif}
+header{max-width:760px;margin:0 auto;padding:26px 24px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line)}
+.mark{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:var(--primary);color:#fff;font-size:24px;font-weight:700}
+.brand{font-weight:650}
+main{max-width:760px;margin:0 auto;padding:clamp(34px,8vh,76px) 24px 48px}
+.eyebrow{margin:0 0 14px;color:var(--primary);font-size:.78rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+h1{max-width:15ch;margin:0;font-size:clamp(2rem,5vw,3.25rem);line-height:1.08}
+.intro{max-width:58ch;margin:20px 0 28px;color:var(--muted);font-size:1.08rem}
+.notice{padding:18px 20px;background:var(--soft);border-left:4px solid var(--primary);border-radius:4px}
+.notice h2{margin:0 0 6px;font-size:1rem}
+.notice p{margin:0;color:var(--muted)}
+.urgent{border-color:var(--urgent)}
+.urgent .eyebrow{color:var(--urgent)}
+.actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:22px}
+a.button{display:inline-flex;align-items:center;justify-content:center;min-height:48px;padding:10px 16px;border:1px solid var(--primary);border-radius:6px;color:var(--primary);font-weight:650;text-decoration:none}
+a.button.primary{background:var(--primary);color:#fff}
+a.button:focus-visible{outline:3px solid var(--urgent);outline-offset:3px}
+.fine{max-width:62ch;margin-top:26px;color:var(--muted);font-size:.9rem}
+@media(max-width:480px){header{padding:18px 20px}main{padding-right:20px;padding-left:20px}.actions{display:grid}.actions a{width:100%}}
+</style>
+</head>
+<body>
+<header><span class="mark" aria-hidden="true">+</span><span class="brand">Acompañamiento de tu equipo de salud</span></header>
+<main>
+<p class="eyebrow" id="eyebrow">Solicitud recibida</p>
+<h1 id="title">Gracias por contarnos cómo estás.</h1>
+<p class="intro" id="intro">Enfermería recibió tus respuestas y revisará tu solicitud según los procedimientos del equipo.</p>
+<section class="notice" id="notice" aria-labelledby="notice-title">
+<h2 id="notice-title">Si necesitas ayuda inmediata</h2>
+<p>Esta página no ofrece atención en tiempo real. Si estás en peligro ahora, llama al SAMU al 131.</p>
+</section>
+<p class="fine" id="selectionSummary" hidden></p>
+<p class="fine" id="privacyNote" hidden>Tus respuestas solo se usan para mostrar este resumen. No se notifican a enfermería ni se guardan en la ficha clínica.</p>
+<div class="actions">
+<a class="button primary" href="tel:131">Llamar al 131</a>
+<a class="button" href="tel:4141">Línea de prevención · *4141</a>
+</div>
+<p class="fine">Si puedes, avisa también a una persona de confianza que esté cerca. Esta información no reemplaza una evaluación profesional.</p>
+</main>
+<script>
+const params=new URLSearchParams(location.search);
+const answers=new URLSearchParams(location.hash.slice(1));
+const high=params.get('motivo')==='urgencia-alta';
+const helpLabels={enfermeria:'Hablar con enfermería',urgente:'Necesito ayuda urgente'};
+const moodLabels={bien:'😄 Bien',medio:'😐 Más o menos',mal:'😟 Mal'};
+const help=helpLabels[answers.get('ayuda')];
+const mood=moodLabels[answers.get('animo')];
+if(high){
+ document.querySelector('#eyebrow').textContent='Solicitud prioritaria recibida';
+ document.querySelector('#title').textContent='Tus respuestas necesitan una revisión prioritaria.';
+ document.querySelector('#intro').textContent='El equipo de enfermería recibió tus respuestas para revisarlas. Esta página no avisa a emergencias ni confirma atención inmediata.';
+ document.querySelector('#notice').classList.add('urgent');
+}
+if(help||mood){
+ const summary=document.querySelector('#selectionSummary');
+ summary.hidden=false;
+ summary.textContent=`Tus selecciones: ${help||'tipo de ayuda sin seleccionar'} · ${mood||'ánimo sin seleccionar'}.`;
+ document.querySelector('#privacyNote').hidden=false;
+}
+</script>
+</body>
+</html>
