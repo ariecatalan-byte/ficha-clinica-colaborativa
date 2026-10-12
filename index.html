@@ -50,7 +50,7 @@ svg{max-width:100%}
 <p>Prototipo navegable: el paciente responde por WhatsApp, enfermería filtra y el equipo tratante decide. Los datos son de ejemplo.</p>
 </header>
 <nav role="tablist">
-<button role="tab" aria-selected="true" data-t="p">1. Paciente (WhatsApp)</button>
+<button role="tab" aria-selected="true" data-t="p">1. Demo del paciente</button>
 <button role="tab" aria-selected="false" data-t="e">2. Filtro de enfermería</button>
 <button role="tab" aria-selected="false" data-t="d">3. Equipo tratante</button>
 </nav>
@@ -61,13 +61,14 @@ svg{max-width:100%}
 <div class="chat" id="chat" aria-live="polite"></div>
 <div class="opts" id="opts"></div>
 </div>
-<p class="mut" style="text-align:center">Lo que responda aquí aparece en las otras dos pestañas.</p>
+<p class="mut" style="text-align:center">Esta simulación es independiente. Para probar el bot real, escribe al número de WhatsApp configurado.</p>
 </section>
 
 <section id="e">
 <div class="card">
 <h2>Bandeja de enfermería</h2>
-<p class="mut">Revisa riesgos, valida la información y clasifica la urgencia.</p>
+<p class="mut">Los casos reales recibidos por WhatsApp aparecerán aquí cuando el backend local esté conectado.</p>
+<p id="apiStatus" class="mut" role="status" aria-live="polite">Conectando con el bot…</p>
 <div id="inbox"></div>
 <div class="note">Enfermería acompaña, orienta y filtra. No toma decisiones clínicas.</div>
 </div>
@@ -77,6 +78,7 @@ svg{max-width:100%}
 <div class="grid">
 <div class="card">
 <h2>María González · 28 años</h2>
+<p class="mut">Panel con datos de ejemplo; los casos reales del bot se revisan en la bandeja de enfermería.</p>
 <div class="kpi"><div><b id="kAd">85%</b><span class="mut">Adherencia</span></div><div><b id="kRi">Bajo</b><span class="mut">Riesgo actual</span></div><div><b id="kSn">0</b><span class="mut">Por revisar</span></div></div>
 <h2 style="margin-top:16px">Estado de ánimo (últimos 30 días)</h2>
 <svg id="chart" viewBox="0 0 300 100" role="img" aria-label="Gráfico de estado de ánimo"></svg>
@@ -98,6 +100,8 @@ svg{max-width:100%}
 <script>
 const $=s=>document.querySelector(s);
 const state={mood:null,med:null,cita:null,audio:null,urg:null,approved:{}};
+const API_BASE=location.protocol==='file:'||location.port==='5500'?'http://127.0.0.1:8000':location.origin;
+let apiConnected=false,realCases=[];
 const moodVals={'😄 Bien':8,'😐 Más o menos':5,'😟 Mal':2};
 const series=[6,5,6,7,5,6,7,8,6,5,6,7];
 const chat=$('#chat'),opts=$('#opts');
@@ -114,13 +118,44 @@ function flow(){
      render()})})})});
 }
 function risk(){let s=0;if(state.mood&&moodVals[state.mood]<=2)s+=2;if(state.med==='No')s+=1;if(state.cita==='No puedo asistir')s+=1;if(state.audio==='Hablar con enfermería')s+=1;return s>=3?'alto':s>=1?'medio':'bajo'}
+function escapeHtml(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function renderInbox(){
+ const inbox=$('#inbox'),status=$('#apiStatus');
+ status.textContent=apiConnected?`Bot conectado · ${realCases.length} caso(s) recibido(s)`:'Backend desconectado · Mostrando solo la demostración local.';
+ if(apiConnected){
+  if(!realCases.length){inbox.innerHTML='<p class="mut">Todavía no hay casos recibidos por WhatsApp.</p>';return}
+  inbox.innerHTML=realCases.map(c=>{
+   const answers=Object.entries(c.respuestas||{}).map(([k,v])=>`${escapeHtml(k)}: ${escapeHtml(v)}`).join(' · ')||'Sin respuestas registradas';
+   const note=c.nota?`<div class="mut">${escapeHtml(c.nota)}</div>`:'';
+     const action=c.validado?'<span class="mut">Validado ✓</span>':`<button class="btn solid" data-case-id="${Number(c.id)}">Validar caso</button>`;
+   return `<div class="row"><div><b>WhatsApp · ${escapeHtml(c.telefono)}</b><div class="mut">${answers}</div>${note}</div><span class="tag ${escapeHtml(c.urgencia)}">Urgencia ${escapeHtml(c.urgencia)}</span></div><div class="row"><span class="mut">${c.validado?'Caso revisado por enfermería':'Pendiente de revisión'}</span>${action}</div>`
+  }).join('');
+  inbox.querySelectorAll('button[data-case-id]').forEach(button=>button.onclick=async()=>{
+   button.disabled=true;
+   try{
+    const response=await fetch(`${API_BASE}/api/casos/${button.dataset.caseId}/validar`,{method:'POST'});
+    if(!response.ok)throw new Error(`HTTP ${response.status}`);
+    await refreshCases();
+   }catch(error){button.disabled=false;status.textContent=`No se pudo validar: ${error.message}`}
+  });
+  return;
+ }
+ if(!state.mood){inbox.innerHTML='<p class="mut">Sin mensajes. Completa el chat de demostración en la pestaña Paciente.</p>';return}
+ const r=risk();
+ inbox.innerHTML=`<div class="row"><div><b>María González · DEMO</b><div class="mut">Ánimo: ${escapeHtml(state.mood)} · Medicación: ${escapeHtml(state.med||'—')} · Cita: ${escapeHtml(state.cita||'—')}</div></div><span class="tag ${r}">Urgencia ${r}</span></div><div class="row"><span class="mut">Caso simulado; no fue enviado por WhatsApp.</span><button class="btn solid" id="send">${state.urg?'Revisado ✓':'Validar demo'}</button></div>`;
+ $('#send').onclick=()=>{state.urg=r;render()};
+}
+async function refreshCases(){
+ try{
+  const response=await fetch(`${API_BASE}/api/casos`);
+  if(!response.ok)throw new Error(`HTTP ${response.status}`);
+  realCases=await response.json();apiConnected=true;
+ }catch{apiConnected=false;realCases=[]}
+ renderInbox();
+}
 function render(){
  const r=state.mood?risk():'bajo';
- const inbox=$('#inbox');
- if(!state.mood){inbox.innerHTML='<p class="mut">Sin mensajes. Completa el chat en la pestaña Paciente.</p>'}
- else{inbox.innerHTML=`<div class="row"><div><b>María González</b><div class="mut">Ánimo: ${state.mood} · Medicación: ${state.med||'—'} · Cita: ${state.cita||'—'}</div></div><div><span class="tag ${r}">Urgencia ${r}</span></div></div>
- <div class="row"><span class="mut">Validar y enviar al equipo tratante</span><button class="btn solid" id="send">${state.urg?'Enviado ✓':'Validar y enviar'}</button></div>`;
- $('#send').onclick=()=>{state.urg=r;render()}}
+ renderInbox();
  const sent=!!state.urg;
  $('#kRi').textContent=sent?(r==='alto'?'Alto':r==='medio'?'Medio':'Bajo'):'Bajo';
  $('#kAd').textContent=state.med==='No'?'78%':'85%';
@@ -142,7 +177,7 @@ function chart(){
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
  document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',x===b));
  document.querySelectorAll('section').forEach(s=>s.classList.toggle('on',s.id===b.dataset.t));render()});
-flow();render();
+flow();render();refreshCases();setInterval(refreshCases,5000);
 </script>
 </body>
 </html>

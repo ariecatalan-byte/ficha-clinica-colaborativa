@@ -9,7 +9,7 @@ API = f"https://graph.facebook.com/v21.0/{PHONE_ID}/messages"
 def firma_valida(raw: bytes, header: str | None) -> bool:
     """Verifica que el POST venga de Meta (X-Hub-Signature-256)."""
     if not APP_SECRET:
-        return True  # solo desarrollo local
+        return False
     esperado = "sha256=" + hmac.new(APP_SECRET.encode(), raw, hashlib.sha256).hexdigest()
     return hmac.compare_digest(esperado, header or "")
 

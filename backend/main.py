@@ -1,14 +1,28 @@
 import os
+import ipaddress
+from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()
 from fastapi import FastAPI, Request, Query, HTTPException, BackgroundTasks
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 import whatsapp as wa
 
 app = FastAPI(title="Ficha Clínica Colaborativa")
 VERIFY_TOKEN = os.getenv("WA_VERIFY_TOKEN", "cambia-este-token")
+FRONTEND_ORIGINS = [origin.strip() for origin in os.getenv(
+    "DASHBOARD_ORIGINS", "http://127.0.0.1:5500,http://localhost:5500"
+).split(",") if origin.strip()]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=FRONTEND_ORIGINS,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
+)
 
 SESIONES: dict[str, dict] = {}   # teléfono -> estado (reemplazar por PostgreSQL)
 CASOS: list[dict] = []           # bandeja de enfermería
+SIGUIENTE_ID_CASO = 1
 
 PALABRAS_CRISIS = ["suicid", "matarme", "quitarme la vida", "no quiero vivir", "hacerme daño"]
 MSG_CRISIS = ("Lamento que estés pasando por esto. No estás solo/a. Un profesional de enfermería "
@@ -29,7 +43,30 @@ def triage(r: dict) -> str:
     return "alto" if p >= 3 else "medio" if p >= 1 else "bajo"
 
 def crear_caso(tel: str, urgencia: str, resp: dict, nota: str = ""):
-    CASOS.append({"telefono": tel, "urgencia": urgencia, "respuestas": resp, "nota": nota, "validado": False})
+    global SIGUIENTE_ID_CASO
+    CASOS.append({
+        "id": SIGUIENTE_ID_CASO,
+        "telefono": tel,
+        "urgencia": urgencia,
+        "respuestas": resp.copy(),
+        "nota": nota,
+        "validado": False,
+    })
+    SIGUIENTE_ID_CASO += 1
+
+def exigir_acceso_local(req: Request):
+    """La bandeja clínica de esta versión solo está disponible en el equipo local."""
+    host = req.client.host if req.client else ""
+    try:
+        es_local = ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        es_local = False
+    if not es_local:
+        raise HTTPException(403, "La bandeja solo está disponible localmente.")
+
+@app.get("/")
+def inicio():
+    return FileResponse(Path(__file__).resolve().parent.parent / "index.html")
 
 async def avanzar(tel: str):
     s = SESIONES[tel]
@@ -85,11 +122,32 @@ async def entrante(req: Request, bg: BackgroundTasks):
         bg.add_task(procesar, *msg)   # responder 200 rápido a Meta
     return {"ok": True}
 
+def casos_ordenados():
+    return sorted(CASOS, key=lambda c: ({"alto": 0, "medio": 1, "bajo": 2}.get(c["urgencia"], 3), c["id"]))
+
+@app.get("/api/casos")
+def listar_casos(req: Request):
+    exigir_acceso_local(req)
+    return casos_ordenados()
+
 @app.get("/bandeja")
-def bandeja():
-    return sorted(CASOS, key=lambda c: {"alto": 0, "medio": 1, "bajo": 2}[c["urgencia"]])
+def bandeja(req: Request):
+    exigir_acceso_local(req)
+    return casos_ordenados()
+
+@app.post("/api/casos/{caso_id}/validar")
+def validar_caso(caso_id: int, req: Request):
+    exigir_acceso_local(req)
+    caso = next((c for c in CASOS if c["id"] == caso_id), None)
+    if caso is None:
+        raise HTTPException(404, "Caso no encontrado")
+    caso["validado"] = True
+    return caso
 
 @app.post("/bandeja/{i}/validar")
-def validar(i: int):
+def validar_indice(i: int, req: Request):
+    exigir_acceso_local(req)
+    if i < 0 or i >= len(CASOS):
+        raise HTTPException(404, "Caso no encontrado")
     CASOS[i]["validado"] = True
     return CASOS[i]

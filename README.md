@@ -1,6 +1,15 @@
 # Ficha Clínica Colaborativa (prototipo)
 
-## Abrir en Visual Studio Code
+## Interfaz conectada al backend
+
+1. Instala Python y las dependencias: `pip install -r backend/requirements.txt`.
+2. Inicia el servicio desde la carpeta `backend`: `uvicorn main:app --reload --port 8000`.
+3. Abre `http://127.0.0.1:8000/`. La interfaz y la bandeja usan el mismo backend.
+4. La pestaña de enfermería consulta los casos de WhatsApp cada 5 segundos y permite marcarlos como revisados. Si el backend no está disponible, solo muestra la demostración local.
+
+La bandeja de esta versión está restringida al equipo local y guarda los casos en memoria; se vacían al reiniciar. No publiques ni expongas la bandeja a Internet: antes de usarla en una clínica hacen falta autenticación por roles, base de datos, controles de privacidad y revisión clínica.
+
+## Abrir la demostración en Visual Studio Code
 1. Descomprime la carpeta.
 2. VS Code > Archivo > Abrir carpeta... > selecciona `ficha-clinica-colaborativa`.
 3. Instala la extensión **Live Server** (Ritwick Dey).
@@ -14,7 +23,7 @@ python -m venv .venv
 pip install -r requirements.txt
 uvicorn main:app --reload
 ```
-Docs automáticas en http://127.0.0.1:8000/docs
+Documentación de la API en http://127.0.0.1:8000/docs
 
 ## Estructura
 - `index.html`: prototipo front (paciente, enfermería, equipo tratante)
@@ -30,7 +39,7 @@ Aviso: son datos de ejemplo. Antes de usar datos reales, revisar consentimiento 
 4. Levanta el servidor: `uvicorn main:app --reload --port 8000`
 5. Expónlo con un túnel: `ngrok http 8000` (copia la URL https).
 6. En *WhatsApp > Configuration > Webhook*: URL `https://TU-URL/webhook`, token = tu `WA_VERIFY_TOKEN`; suscribe el campo **messages**.
-7. Escribe "hola" al número de prueba desde tu celular. Revisa los casos en http://127.0.0.1:8000/bandeja
+7. Escribe "hola" al número de prueba desde tu celular. Revisa los casos en http://127.0.0.1:8000/ o http://127.0.0.1:8000/bandeja
 
 Para producción necesitas: número propio verificado, Business verificado en Meta, token permanente (usuario de sistema), HTTPS real y base de datos en vez de memoria.
 Los textos de crisis (*4141, 131) deben ser revisados por tu equipo clínico antes de usarse con pacientes.
